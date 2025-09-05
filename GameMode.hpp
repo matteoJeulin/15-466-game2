@@ -27,12 +27,19 @@ struct GameMode : Mode {
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
 
-	Scene::Transform *back_fin = nullptr;
+	Scene::Transform *fish = nullptr;
 	Scene::Transform *body = nullptr;
+	Scene::Transform *back_fin = nullptr;
+	Scene::Transform *shark = nullptr;
 	Scene::Transform *box = nullptr;
+
+	glm::quat body_base_rotation;
 	glm::quat back_fin_base_rotation;
 
-	float maxSpeed = 30.0f;
+	// Acceleration and max speed of the fish, accounting for the smaller parent node of the mesh
+	const float playerAcceleration = 5.0f * 100.0f;
+	float maxSpeed = 30.0f * 100.0f;
+
 	glm::vec3 playerSpeed = glm::vec3(0.0f);
 
 	float wobble = 0.0f;
