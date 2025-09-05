@@ -4,6 +4,9 @@
 //The 'PlayMode' mode plays the game:
 #include "PlayMode.hpp"
 
+//The 'GameMode' mode plays the game:
+#include "GameMode.hpp"
+
 //For asset loading:
 #include "Load.hpp"
 
@@ -65,7 +68,7 @@ int main(int argc, char **argv) {
 	//create window:
 	Mode::window = SDL_CreateWindow(
 		"gp25 game2: enter the matr... virtual world", //TODO: remember to set a title for your game!
-		1280, 720, //TODO: modify window size if you'd like
+		1920, 1080, //TODO: modify window size if you'd like
 		SDL_WINDOW_OPENGL
 		| SDL_WINDOW_RESIZABLE //uncomment to allow resizing
 		| SDL_WINDOW_HIGH_PIXEL_DENSITY //uncomment for full resolution on high-DPI screens
@@ -109,7 +112,7 @@ int main(int argc, char **argv) {
 	call_load_functions();
 
 	//------------ create game mode + make current --------------
-	Mode::set_current(std::make_shared< PlayMode >());
+	Mode::set_current(std::make_shared< GameMode >());
 
 	//------------ main loop ------------
 
