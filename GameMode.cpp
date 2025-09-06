@@ -32,8 +32,7 @@ Load<Scene> fish_scene(LoadTagDefault, []() -> Scene const *
 											  drawable.pipeline.vao = fish_meshes_for_lit_color_texture_program;
 											  drawable.pipeline.type = mesh.type;
 											  drawable.pipeline.start = mesh.start;
-											  drawable.pipeline.count = mesh.count;
-										  }); });
+											  drawable.pipeline.count = mesh.count; }); });
 
 GameMode::GameMode() : scene(*fish_scene)
 {
@@ -46,13 +45,18 @@ GameMode::GameMode() : scene(*fish_scene)
 			body = &transform;
 		else if (transform.name == "BackFin")
 			back_fin = &transform;
-		else if (transform.name == "Box")
-			box = &transform;
+		else if (transform.name == "Shark")
+			shark = &transform;
 	}
-	if (body == nullptr)
+
+	if (fish == nullptr)
 		throw std::runtime_error("Fish not found.");
+	if (body == nullptr)
+		throw std::runtime_error("Fish body not found.");
 	if (back_fin == nullptr)
-		throw std::runtime_error("Back fin leg not found.");
+		throw std::runtime_error("Fish back fin not found.");
+	if (shark == nullptr)
+		throw std::runtime_error("Shark not found.");
 
 	body_base_rotation = body->rotation;
 	back_fin_base_rotation = back_fin->rotation;
@@ -143,9 +147,7 @@ bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			// Make sure the rotation does not roll the character by multiplying yaw on one side
 			// and pitch on the other (source: https://stackoverflow.com/questions/46738139/prevent-rotation-around-certain-axis-with-quaternion)
 			fish->rotation = glm::normalize(
-				glm::angleAxis(-motion.x * camera->fovy, glm::vec3(0.0f, 0.0f, 1.0f)) 
-				* fish->rotation 
-				* glm::angleAxis(-motion.y * camera->fovy, glm::vec3(0.0f, 1.0f, 0.0f)));
+				glm::angleAxis(-motion.x * camera->fovy, glm::vec3(0.0f, 0.0f, 1.0f)) * fish->rotation * glm::angleAxis(-motion.y * camera->fovy, glm::vec3(0.0f, 1.0f, 0.0f)));
 			return true;
 		}
 	}
@@ -161,11 +163,15 @@ void GameMode::update(float elapsed)
 
 	// move camera:
 	{
-		//combine inputs into a move:
-		if (left.pressed && !right.pressed) playerSpeed.x = std::max(playerSpeed.x - playerAcceleration * elapsed, -maxSpeed);
-		if (!left.pressed && right.pressed) playerSpeed.x = std::min(playerSpeed.x + playerAcceleration * elapsed, maxSpeed);
-		if (down.pressed && !up.pressed) playerSpeed.y = std::max(playerSpeed.y - playerAcceleration * elapsed, -maxSpeed);
-		if (!down.pressed && up.pressed) playerSpeed.y = std::min(playerSpeed.y + playerAcceleration * elapsed, maxSpeed);
+		// combine inputs into a move:
+		if (left.pressed && !right.pressed)
+			playerSpeed.x = std::max(playerSpeed.x - playerAcceleration * elapsed, -maxSpeed);
+		if (!left.pressed && right.pressed)
+			playerSpeed.x = std::min(playerSpeed.x + playerAcceleration * elapsed, maxSpeed);
+		if (down.pressed && !up.pressed)
+			playerSpeed.y = std::max(playerSpeed.y - playerAcceleration * elapsed, -maxSpeed);
+		if (!down.pressed && up.pressed)
+			playerSpeed.y = std::min(playerSpeed.y + playerAcceleration * elapsed, maxSpeed);
 
 		if (!left.pressed && !right.pressed)
 		{
@@ -180,10 +186,10 @@ void GameMode::update(float elapsed)
 		back_fin->rotation = back_fin_base_rotation * glm::angleAxis(
 														  (glm::length(playerSpeed) / maxSpeed) * (float(M_PI) / 4) * std::sin(wobble * 2.0f * float(M_PI)),
 														  glm::vec3(0.0f, 1.0f, 0.0f));
-												
+
 		body->rotation = body_base_rotation * glm::angleAxis(
-														  (-glm::length(playerSpeed) / (maxSpeed)) * (float(M_PI) / 32) * std::sin(wobble * 2.0f * float(M_PI)),
-														  glm::vec3(0.0f, 0.0f, 1.0f));
+												  (-glm::length(playerSpeed) / (maxSpeed)) * (float(M_PI) / 32) * std::sin(wobble * 2.0f * float(M_PI)),
+												  glm::vec3(0.0f, 0.0f, 1.0f));
 
 		glm::mat4x3 frame = fish->make_parent_from_local();
 		glm::vec3 frame_forward = -frame[0];
@@ -192,6 +198,98 @@ void GameMode::update(float elapsed)
 
 		// y-axis is the forward/backward direction and the x-axis is the right/left direction
 		fish->position += playerSpeed.x * frame_right * elapsed + playerSpeed.y * frame_forward * elapsed + playerSpeed.z * frame_up * elapsed;
+
+		// //Move the cone to the correct place
+		// glm::mat4 model = glm::mat4(1, 0, 0, 0,
+		// 							0, 1, 0, 0,
+		// 							0, 0, 1, 0,
+		// 							shark->position.x, shark->position.y, shark->position.z, 1);
+
+		// // Calculate rotation matrix
+		// model *= glm::inverse(glm::lookAt(shark->position, fish->position, frame_up));
+
+		// quaternion q;
+		// vector3 c = cross(v1,v2);
+		// q.v = c;
+		// if ( vectors are known to be unit length ) {
+		//     q.w = 1 + dot(v1,v2);
+		// } else {
+		//     q.w = sqrt(v1.length_squared() * v2.length_squared()) + dot(v1,v2);
+		// }
+		// q.normalize();
+		// return q;
+
+
+		// glm::quat q;
+		
+		// glm::vec3 c = glm::cross(fish->position, shark->position);
+		// q.x = c.x;
+		// q.y = c.y;
+		// q.z = c.z;
+
+		// q.w = glm::sqrt(glm::length(fish->position) * glm::length(fish->position) + glm::length(shark->position) * glm::length(shark->position)) + glm::dot(fish->position, shark->position);
+
+		// q = glm::normalize(q);
+		
+		// Based on : https://stackoverflow.com/questions/13014973/quaternion-rotate-to
+		glm::mat4x3 frame_shark = shark->make_parent_from_local();
+		glm::vec3 frame_shark_forward = -frame_shark[0];
+
+		glm::vec3 p_c = glm::normalize(fish->position - shark->position);
+
+		glm::vec3 a = glm::cross(frame_shark_forward, p_c);
+
+		if (a != glm::vec3(0.0f) && p_c != glm::vec3(0.0f)) {
+			a = glm::normalize(a);
+			float dot = glm::dot(glm::normalize(frame_shark_forward), p_c);
+			if (dot < 1 && dot > -1) {
+				float phi = glm::acos(dot);
+				std::cout << phi << std::endl;
+				glm::vec3 b = glm::cross(a, glm::normalize(frame_shark_forward));
+		
+				if (glm::dot(b, p_c) < 0) phi = -phi;
+		
+				shark->rotation = glm::rotate(shark->rotation, phi, a);
+			}
+		}
+
+		shark->position += frame_shark_forward * (maxSpeed / 500) * elapsed;
+
+
+		// glm::quat q(glm::cos(phi / 2), glm::sin(phi / 2) * a);
+
+		// shark->rotation = q;
+
+		// glm::vec3 frame_shark_right = frame_shark[1];
+		// glm::vec3 frame_shark_up = -frame_shark[2];
+		// shark->position += 0.1f * frame_shark_forward;
+
+		// glm::vec3 vectorToFish(fish->position.x - shark->position.x,
+		// 					   fish->position.y - shark->position.y,
+		// 					   fish->position.z - shark->position.z);
+
+		// vectorToFish = glm::normalize(vectorToFish);
+
+		// glm::vec3 rotationAxis(vectorToFish.y * frame_shark_forward.z - vectorToFish.z * frame_shark_forward.y,
+		// 					   vectorToFish.z * frame_shark_forward.x - vectorToFish.x * frame_shark_forward.z,
+		// 					   vectorToFish.x * frame_shark_forward.y - vectorToFish.y * frame_shark_forward.z);
+
+		// float angle = glm::acos(vectorToFish.x * frame_shark_forward.x + vectorToFish.y * frame_shark_forward.y + vectorToFish.z * frame_shark_forward.z);
+
+		// glm::vec3 thirdVector(rotationAxis.y * frame_shark_forward.z - rotationAxis.z * frame_shark_forward.y,
+		// 					  rotationAxis.z * frame_shark_forward.x - rotationAxis.x * frame_shark_forward.z,
+		// 					  rotationAxis.x * frame_shark_forward.y - rotationAxis.y * frame_shark_forward.z);
+
+		// if (thirdVector.x * vectorToFish.x + thirdVector.y * vectorToFish.y + thirdVector.z * vectorToFish.z < 0)
+		// {
+		// 	angle = -angle;
+		// }
+
+		// rotationAxis = glm::normalize(rotationAxis);
+
+		// glm::quat axisAngle = glm::angleAxis(angle, rotationAxis);
+
+		// shark->rotation = axisAngle * shark->rotation;
 	}
 
 	// //reset button press counters:
@@ -200,6 +298,57 @@ void GameMode::update(float elapsed)
 	// up.downs = 0;
 	// down.downs = 0;
 }
+
+// void lookAt(std::Vector3<float> Target)
+// {
+// 	/// Derived from pseudocode found here:
+// 	/// https://stackoverflow.com/questions/13014973/quaternion-rotate-to
+
+// 	// Get the normalized vector from the camera position to Target
+// 	sf::Vector3<float> VectorTo(Target.x - m_Position.x,
+// 								Target.y - m_Position.y,
+// 								Target.z - m_Position.z);
+
+// 	// Get the length of VectorTo
+// 	float VectorLength = sqrt(VectorTo.x * VectorTo.x +
+// 							  VectorTo.y * VectorTo.y +
+// 							  VectorTo.z * VectorTo.z);
+// 	// Normalize VectorTo
+// 	VectorTo.x /= VectorLength;
+// 	VectorTo.y /= VectorLength;
+// 	VectorTo.z /= VectorLength;
+
+// 	// Straight-ahead vector
+// 	sf::Vector3<float> LocalVector = m_Orientation.MultVect(sf::Vector3<float>(0, 0, -1));
+
+// 	// Get the cross product as the axis of rotation
+// 	sf::Vector3<float> Axis(VectorTo.y * LocalVector.z - VectorTo.z * LocalVector.y,
+// 							VectorTo.z * LocalVector.x - VectorTo.x * LocalVector.z,
+// 							VectorTo.x * LocalVector.y - VectorTo.y * LocalVector.x);
+
+// 	// Get the dot product to find the angle
+// 	float Angle = acos(VectorTo.x * LocalVector.x +
+// 					   VectorTo.y * LocalVector.y +
+// 					   VectorTo.z * LocalVector.z);
+
+// 	// Determine whether or not the angle is positive
+// 	// Get the cross product of the axis and the local vector
+// 	sf::Vector3<float> ThirdVect(Axis.y * LocalVector.z - Axis.z * LocalVector.y,
+// 								 Axis.z * LocalVector.x - Axis.x * LocalVector.z,
+// 								 Axis.x * LocalVector.y - Axis.y * LocalVector.x);
+// 	// If the dot product of that and the local vector is negative, so is the angle
+// 	if (ThirdVect.x * VectorTo.x + ThirdVect.y * VectorTo.y + ThirdVect.z * VectorTo.z < 0)
+// 	{
+// 		Angle = -Angle;
+// 	}
+
+// 	// Finally, create a quaternion
+// 	Quaternion AxisAngle;
+// 	AxisAngle.FromAxisAngle(Angle, Axis.x, Axis.y, Axis.z);
+
+// 	// And multiply it into the current orientation
+// 	m_Orientation = AxisAngle * m_Orientation;
+// }
 
 void GameMode::draw(glm::uvec2 const &drawable_size)
 {

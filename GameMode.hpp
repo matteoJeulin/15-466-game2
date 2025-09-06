@@ -31,7 +31,6 @@ struct GameMode : Mode {
 	Scene::Transform *body = nullptr;
 	Scene::Transform *back_fin = nullptr;
 	Scene::Transform *shark = nullptr;
-	Scene::Transform *box = nullptr;
 
 	glm::quat body_base_rotation;
 	glm::quat back_fin_base_rotation;
