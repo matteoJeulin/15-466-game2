@@ -199,156 +199,35 @@ void GameMode::update(float elapsed)
 		// y-axis is the forward/backward direction and the x-axis is the right/left direction
 		fish->position += playerSpeed.x * frame_right * elapsed + playerSpeed.y * frame_forward * elapsed + playerSpeed.z * frame_up * elapsed;
 
-		// //Move the cone to the correct place
-		// glm::mat4 model = glm::mat4(1, 0, 0, 0,
-		// 							0, 1, 0, 0,
-		// 							0, 0, 1, 0,
-		// 							shark->position.x, shark->position.y, shark->position.z, 1);
-
-		// // Calculate rotation matrix
-		// model *= glm::inverse(glm::lookAt(shark->position, fish->position, frame_up));
-
-		// quaternion q;
-		// vector3 c = cross(v1,v2);
-		// q.v = c;
-		// if ( vectors are known to be unit length ) {
-		//     q.w = 1 + dot(v1,v2);
-		// } else {
-		//     q.w = sqrt(v1.length_squared() * v2.length_squared()) + dot(v1,v2);
-		// }
-		// q.normalize();
-		// return q;
-
-
-		// glm::quat q;
-		
-		// glm::vec3 c = glm::cross(fish->position, shark->position);
-		// q.x = c.x;
-		// q.y = c.y;
-		// q.z = c.z;
-
-		// q.w = glm::sqrt(glm::length(fish->position) * glm::length(fish->position) + glm::length(shark->position) * glm::length(shark->position)) + glm::dot(fish->position, shark->position);
-
-		// q = glm::normalize(q);
-		
 		// Based on : https://stackoverflow.com/questions/13014973/quaternion-rotate-to
 		glm::mat4x3 frame_shark = shark->make_parent_from_local();
-		glm::vec3 frame_shark_forward = -frame_shark[0];
+		glm::vec3 frame_shark_forward = -frame_shark[0]; // Assuming -X is forward
 
 		glm::vec3 p_c = glm::normalize(fish->position - shark->position);
 
 		glm::vec3 a = glm::cross(frame_shark_forward, p_c);
 
-		if (a != glm::vec3(0.0f) && p_c != glm::vec3(0.0f)) {
+		if (a != glm::vec3(0.0f) && p_c != glm::vec3(0.0f))
+		{
 			a = glm::normalize(a);
 			float dot = glm::dot(glm::normalize(frame_shark_forward), p_c);
-			if (dot < 1 && dot > -1) {
+			if (dot < 1 && dot > -1)
+			{
 				float phi = glm::acos(dot);
-				std::cout << phi << std::endl;
 				glm::vec3 b = glm::cross(a, glm::normalize(frame_shark_forward));
-		
-				if (glm::dot(b, p_c) < 0) phi = -phi;
-		
-				shark->rotation = glm::rotate(shark->rotation, phi, a);
+
+				if (glm::dot(b, p_c) < 0)
+				{
+					phi = -phi;
+				}
+
+				glm::quat rot = glm::angleAxis(phi, a);
+				shark->rotation = rot * shark->rotation;
 			}
 		}
-
-		shark->position += frame_shark_forward * (maxSpeed / 500) * elapsed;
-
-
-		// glm::quat q(glm::cos(phi / 2), glm::sin(phi / 2) * a);
-
-		// shark->rotation = q;
-
-		// glm::vec3 frame_shark_right = frame_shark[1];
-		// glm::vec3 frame_shark_up = -frame_shark[2];
-		// shark->position += 0.1f * frame_shark_forward;
-
-		// glm::vec3 vectorToFish(fish->position.x - shark->position.x,
-		// 					   fish->position.y - shark->position.y,
-		// 					   fish->position.z - shark->position.z);
-
-		// vectorToFish = glm::normalize(vectorToFish);
-
-		// glm::vec3 rotationAxis(vectorToFish.y * frame_shark_forward.z - vectorToFish.z * frame_shark_forward.y,
-		// 					   vectorToFish.z * frame_shark_forward.x - vectorToFish.x * frame_shark_forward.z,
-		// 					   vectorToFish.x * frame_shark_forward.y - vectorToFish.y * frame_shark_forward.z);
-
-		// float angle = glm::acos(vectorToFish.x * frame_shark_forward.x + vectorToFish.y * frame_shark_forward.y + vectorToFish.z * frame_shark_forward.z);
-
-		// glm::vec3 thirdVector(rotationAxis.y * frame_shark_forward.z - rotationAxis.z * frame_shark_forward.y,
-		// 					  rotationAxis.z * frame_shark_forward.x - rotationAxis.x * frame_shark_forward.z,
-		// 					  rotationAxis.x * frame_shark_forward.y - rotationAxis.y * frame_shark_forward.z);
-
-		// if (thirdVector.x * vectorToFish.x + thirdVector.y * vectorToFish.y + thirdVector.z * vectorToFish.z < 0)
-		// {
-		// 	angle = -angle;
-		// }
-
-		// rotationAxis = glm::normalize(rotationAxis);
-
-		// glm::quat axisAngle = glm::angleAxis(angle, rotationAxis);
-
-		// shark->rotation = axisAngle * shark->rotation;
+		shark->position += frame_shark_forward * (maxSpeed / 300) * elapsed;
 	}
-
-	// //reset button press counters:
-	// left.downs = 0;
-	// right.downs = 0;
-	// up.downs = 0;
-	// down.downs = 0;
 }
-
-// void lookAt(std::Vector3<float> Target)
-// {
-// 	/// Derived from pseudocode found here:
-// 	/// https://stackoverflow.com/questions/13014973/quaternion-rotate-to
-
-// 	// Get the normalized vector from the camera position to Target
-// 	sf::Vector3<float> VectorTo(Target.x - m_Position.x,
-// 								Target.y - m_Position.y,
-// 								Target.z - m_Position.z);
-
-// 	// Get the length of VectorTo
-// 	float VectorLength = sqrt(VectorTo.x * VectorTo.x +
-// 							  VectorTo.y * VectorTo.y +
-// 							  VectorTo.z * VectorTo.z);
-// 	// Normalize VectorTo
-// 	VectorTo.x /= VectorLength;
-// 	VectorTo.y /= VectorLength;
-// 	VectorTo.z /= VectorLength;
-
-// 	// Straight-ahead vector
-// 	sf::Vector3<float> LocalVector = m_Orientation.MultVect(sf::Vector3<float>(0, 0, -1));
-
-// 	// Get the cross product as the axis of rotation
-// 	sf::Vector3<float> Axis(VectorTo.y * LocalVector.z - VectorTo.z * LocalVector.y,
-// 							VectorTo.z * LocalVector.x - VectorTo.x * LocalVector.z,
-// 							VectorTo.x * LocalVector.y - VectorTo.y * LocalVector.x);
-
-// 	// Get the dot product to find the angle
-// 	float Angle = acos(VectorTo.x * LocalVector.x +
-// 					   VectorTo.y * LocalVector.y +
-// 					   VectorTo.z * LocalVector.z);
-
-// 	// Determine whether or not the angle is positive
-// 	// Get the cross product of the axis and the local vector
-// 	sf::Vector3<float> ThirdVect(Axis.y * LocalVector.z - Axis.z * LocalVector.y,
-// 								 Axis.z * LocalVector.x - Axis.x * LocalVector.z,
-// 								 Axis.x * LocalVector.y - Axis.y * LocalVector.x);
-// 	// If the dot product of that and the local vector is negative, so is the angle
-// 	if (ThirdVect.x * VectorTo.x + ThirdVect.y * VectorTo.y + ThirdVect.z * VectorTo.z < 0)
-// 	{
-// 		Angle = -Angle;
-// 	}
-
-// 	// Finally, create a quaternion
-// 	Quaternion AxisAngle;
-// 	AxisAngle.FromAxisAngle(Angle, Axis.x, Axis.y, Axis.z);
-
-// 	// And multiply it into the current orientation
-// 	m_Orientation = AxisAngle * m_Orientation;
-// }
 
 void GameMode::draw(glm::uvec2 const &drawable_size)
 {
