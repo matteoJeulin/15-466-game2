@@ -104,9 +104,9 @@ void GameMode::randomise_position(Scene::Transform *transform)
 	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::default_random_engine generator(seed);
 
-	std::uniform_int_distribution<float> x_distribution(min_x, max_x);
-	std::uniform_int_distribution<float> y_distribution(min_y, max_y);
-	std::uniform_int_distribution<float> z_distribution(min_z, max_z);
+	std::uniform_real_distribution<float> x_distribution(min_x, max_x);
+	std::uniform_real_distribution<float> y_distribution(min_y, max_y);
+	std::uniform_real_distribution<float> z_distribution(min_z, max_z);
 
 	transform->position.x = x_distribution(generator);
 	transform->position.y = y_distribution(generator);
