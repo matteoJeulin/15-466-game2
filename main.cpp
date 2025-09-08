@@ -1,9 +1,6 @@
 //Mode.hpp declares the "Mode::current" static member variable, which is used to decide where event-handling, updating, and drawing events go:
 #include "Mode.hpp"
 
-//The 'PlayMode' mode plays the game:
-#include "PlayMode.hpp"
-
 //The 'GameMode' mode plays the game:
 #include "GameMode.hpp"
 
@@ -67,7 +64,7 @@ int main(int argc, char **argv) {
 
 	//create window:
 	Mode::window = SDL_CreateWindow(
-		"gp25 game2: enter the matr... virtual world", //TODO: remember to set a title for your game!
+		"Sushi's on the menu", //TODO: remember to set a title for your game!
 		1920, 1080, //TODO: modify window size if you'd like
 		SDL_WINDOW_OPENGL
 		| SDL_WINDOW_RESIZABLE //uncomment to allow resizing
@@ -163,6 +160,8 @@ int main(int argc, char **argv) {
 						px.a = 0xff;
 					}
 					save_png(filename, glm::uvec2(w,h), data.data(), LowerLeftOrigin);
+				} else if (evt.type == SDL_EVENT_KEY_DOWN && evt.key.key == SDLK_SPACE) {
+					Mode::set_current(std::make_shared< GameMode >());
 				}
 			}
 			if (!Mode::current) break;

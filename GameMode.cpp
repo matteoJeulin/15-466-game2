@@ -11,6 +11,9 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <random>
+#include <chrono>
+
+constexpr uint16_t max_nb_points = 10;
 
 GLuint fish_meshes_for_lit_color_texture_program = 0;
 Load<MeshBuffer> fish_meshes(LoadTagDefault, []() -> MeshBuffer const *
@@ -24,15 +27,15 @@ Load<Scene> fish_scene(LoadTagDefault, []() -> Scene const *
 										  {
 											  Mesh const &mesh = fish_meshes->lookup(mesh_name);
 
-											  scene.drawables.emplace_back(transform);
-											  Scene::Drawable &drawable = scene.drawables.back();
-
-											  drawable.pipeline = lit_color_texture_program_pipeline;
-
-											  drawable.pipeline.vao = fish_meshes_for_lit_color_texture_program;
-											  drawable.pipeline.type = mesh.type;
-											  drawable.pipeline.start = mesh.start;
-											  drawable.pipeline.count = mesh.count; }); });
+												scene.drawables.emplace_back(transform);
+												Scene::Drawable &drawable = scene.drawables.back();
+  
+												drawable.pipeline = lit_color_texture_program_pipeline;
+  
+												drawable.pipeline.vao = fish_meshes_for_lit_color_texture_program;
+												drawable.pipeline.type = mesh.type;
+												drawable.pipeline.start = mesh.start;
+												drawable.pipeline.count = mesh.count; }); });
 
 GameMode::GameMode() : scene(*fish_scene)
 {
@@ -47,6 +50,20 @@ GameMode::GameMode() : scene(*fish_scene)
 			back_fin = &transform;
 		else if (transform.name == "Shark")
 			shark = &transform;
+		else if (transform.name == "Sky")
+			sky = &transform;
+		else if (transform.name == "Ground")
+			ground = &transform;
+		else if (transform.name == "FrontWall")
+			frontWall = &transform;
+		else if (transform.name == "BackWall")
+			backWall = &transform;
+		else if (transform.name == "LeftWall")
+			leftWall = &transform;
+		else if (transform.name == "RightWall")
+			rightWall = &transform;
+		else if (transform.name.substr(0, 9).compare("PointBall") == 0)
+					pointBalls.push_back(&transform);
 	}
 
 	if (fish == nullptr)
@@ -61,6 +78,19 @@ GameMode::GameMode() : scene(*fish_scene)
 	body_base_rotation = body->rotation;
 	back_fin_base_rotation = back_fin->rotation;
 
+	// Initialize game boundaries and offset to not have objects in the walls
+	max_x = frontWall->position.x - 5;
+	min_x = backWall->position.x + 5;
+	max_y = leftWall->position.y - 5;
+	min_y = rightWall->position.y + 5;
+	max_z = sky->position.z;
+	min_z = ground->position.z + 5;
+
+	for (Scene::Transform *ball : pointBalls)
+	{
+		randomise_position(ball);
+	}
+
 	// get pointer to camera for convenience:
 	if (scene.cameras.size() != 1)
 		throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
@@ -69,6 +99,20 @@ GameMode::GameMode() : scene(*fish_scene)
 
 GameMode::~GameMode()
 {
+}
+
+void GameMode::randomise_position(Scene::Transform *transform)
+{
+	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	std::default_random_engine generator(seed);
+
+	std::uniform_int_distribution<int> x_distribution(min_x, max_x);
+	std::uniform_int_distribution<int> y_distribution(min_y, max_y);
+	std::uniform_int_distribution<int> z_distribution(min_z, max_z);
+
+	transform->position.x = x_distribution(generator);
+	transform->position.y = y_distribution(generator);
+	transform->position.z = z_distribution(generator);
 }
 
 bool GameMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
@@ -161,17 +205,17 @@ void GameMode::update(float elapsed)
 	wobble += elapsed / 2.0f;
 	wobble -= std::floor(wobble);
 
-	// move camera:
+	// move player and shark
 	{
 		// combine inputs into a move:
 		if (left.pressed && !right.pressed)
-			playerSpeed.x = std::max(playerSpeed.x - playerAcceleration * elapsed, -maxSpeed);
+			playerSpeed.x = std::max(playerSpeed.x - playerAcceleration * elapsed, -playerMaxSpeed);
 		if (!left.pressed && right.pressed)
-			playerSpeed.x = std::min(playerSpeed.x + playerAcceleration * elapsed, maxSpeed);
+			playerSpeed.x = std::min(playerSpeed.x + playerAcceleration * elapsed, playerMaxSpeed);
 		if (down.pressed && !up.pressed)
-			playerSpeed.y = std::max(playerSpeed.y - playerAcceleration * elapsed, -maxSpeed);
+			playerSpeed.y = std::max(playerSpeed.y - playerAcceleration * elapsed, -playerMaxSpeed);
 		if (!down.pressed && up.pressed)
-			playerSpeed.y = std::min(playerSpeed.y + playerAcceleration * elapsed, maxSpeed);
+			playerSpeed.y = std::min(playerSpeed.y + playerAcceleration * elapsed, playerMaxSpeed);
 
 		if (!left.pressed && !right.pressed)
 		{
@@ -184,11 +228,11 @@ void GameMode::update(float elapsed)
 		}
 
 		back_fin->rotation = back_fin_base_rotation * glm::angleAxis(
-														  (glm::length(playerSpeed) / maxSpeed) * (float(M_PI) / 4) * std::sin(wobble * 2.0f * float(M_PI)),
+														  (glm::length(playerSpeed) / playerMaxSpeed) * (float(M_PI) / 4) * std::sin(wobble * 2.0f * float(M_PI)),
 														  glm::vec3(0.0f, 1.0f, 0.0f));
 
 		body->rotation = body_base_rotation * glm::angleAxis(
-												  (-glm::length(playerSpeed) / (maxSpeed)) * (float(M_PI) / 32) * std::sin(wobble * 2.0f * float(M_PI)),
+												  (-glm::length(playerSpeed) / (playerMaxSpeed)) * (float(M_PI) / 32) * std::sin(wobble * 2.0f * float(M_PI)),
 												  glm::vec3(0.0f, 0.0f, 1.0f));
 
 		glm::mat4x3 frame = fish->make_parent_from_local();
@@ -197,35 +241,69 @@ void GameMode::update(float elapsed)
 		glm::vec3 frame_up = -frame[2];
 
 		// y-axis is the forward/backward direction and the x-axis is the right/left direction
-		fish->position += playerSpeed.x * frame_right * elapsed + playerSpeed.y * frame_forward * elapsed + playerSpeed.z * frame_up * elapsed;
+		glm::vec3 previsionalPosition = fish->position + playerSpeed.x * frame_right * elapsed + playerSpeed.y * frame_forward * elapsed + playerSpeed.z * frame_up * elapsed;
+		previsionalPosition.x = std::max(std::min(previsionalPosition.x, max_x), min_x);
+		previsionalPosition.y = std::max(std::min(previsionalPosition.y, max_y), min_y);
+		previsionalPosition.z = std::max(std::min(previsionalPosition.z, max_z), min_z);
+		
+		if (!lost) {
+			fish->position = previsionalPosition;
+		}
+		else {
+			// If lost, take the player out of the arena
+			fish->position = glm::vec3(10000.0f, -10000.0f, -10000.0f);
+			fish->rotation = glm::angleAxis(0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+		}
 
 		// Based on : https://stackoverflow.com/questions/13014973/quaternion-rotate-to
 		glm::mat4x3 frame_shark = shark->make_parent_from_local();
 		glm::vec3 frame_shark_forward = -frame_shark[0]; // Assuming -X is forward
 
-		glm::vec3 p_c = glm::normalize(fish->position - shark->position);
+		glm::vec3 direction = glm::normalize(fish->position - shark->position);
 
-		glm::vec3 a = glm::cross(frame_shark_forward, p_c);
-
-		if (a != glm::vec3(0.0f) && p_c != glm::vec3(0.0f))
+		glm::vec3 rotationAxis = glm::cross(frame_shark_forward, direction);
+		
+		// If the shark is not already facing the fish
+		if (rotationAxis != glm::vec3(0.0f) && direction != glm::vec3(0.0f))
 		{
-			a = glm::normalize(a);
-			float dot = glm::dot(glm::normalize(frame_shark_forward), p_c);
+			rotationAxis = glm::normalize(rotationAxis);
+			float dot = glm::dot(glm::normalize(frame_shark_forward), direction);
+			// Stay within the defined bounds of acos
 			if (dot < 1 && dot > -1)
 			{
 				float phi = glm::acos(dot);
-				glm::vec3 b = glm::cross(a, glm::normalize(frame_shark_forward));
+				glm::vec3 alignementVector = glm::cross(rotationAxis, glm::normalize(frame_shark_forward));
 
-				if (glm::dot(b, p_c) < 0)
+				// Check if we need to turn left or right
+				if (glm::dot(alignementVector, direction) < 0)
 				{
 					phi = -phi;
 				}
 
-				glm::quat rot = glm::angleAxis(phi, a);
+				glm::quat rot = glm::angleAxis(phi, rotationAxis);
 				shark->rotation = rot * shark->rotation;
 			}
 		}
-		shark->position += frame_shark_forward * (maxSpeed / 300) * elapsed;
+		shark->position += frame_shark_forward * sharkMaxSpeed * elapsed;
+	}
+
+	// Checking collisions
+	if (glm::length(shark->position - fish->position) < 6.0f)
+	{
+		screen_text = "You lost, press space to restart";
+		lost = true;
+	}
+	for (Scene::Transform *ball : pointBalls) {
+		if (glm::length(ball->position - fish->position) < 2.0f) {
+			randomise_position(ball);
+			score ++;
+			screen_text = std::to_string(score);
+
+			playerMaxSpeed *= 1.1f;
+			sharkMaxSpeed *= 1.101f;
+			// The shark should not outspeed the fish
+			sharkMaxSpeed = std::min(sharkMaxSpeed, playerMaxSpeed);
+		}
 	}
 }
 
@@ -243,6 +321,10 @@ void GameMode::draw(glm::uvec2 const &drawable_size)
 	glUseProgram(0);
 
 	glClearColor(0.25f, 0.71f, 0.84f, 1.0f);
+	if (lost)
+	{
+		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+	}
 	glClearDepth(1.0f); // 1.0 is actually the default value to clear the depth buffer to, but FYI you can change it.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -263,12 +345,12 @@ void GameMode::draw(glm::uvec2 const &drawable_size)
 			0.0f, 0.0f, 0.0f, 1.0f));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
+		lines.draw_text(screen_text,
 						glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 						glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 						glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
+		lines.draw_text(screen_text,
 						glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + 0.1f * H + ofs, 0.0),
 						glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 						glm::u8vec4(0xff, 0xff, 0xff, 0x00));
