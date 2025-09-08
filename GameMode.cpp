@@ -13,8 +13,6 @@
 #include <random>
 #include <chrono>
 
-constexpr uint16_t max_nb_points = 10;
-
 GLuint fish_meshes_for_lit_color_texture_program = 0;
 Load<MeshBuffer> fish_meshes(LoadTagDefault, []() -> MeshBuffer const *
 							 {
